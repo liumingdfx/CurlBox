@@ -1,0 +1,18 @@
+# Build outputs
+*.exe
+*.pdb
+*.zip
+/dist/
+
+# User data
+data/
+settings.json
+history.json
+requests.json
+*.backup*.json
+
+# Archived prototype not part of the desktop app
+/prototype-web/
+
+# IDE
+.vs/

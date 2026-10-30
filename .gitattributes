@@ -1,0 +1,4 @@
+*.cmd text eol=crlf
+*.manifest text eol=crlf
+*.cs text eol=crlf
+*.config text eol=crlf
