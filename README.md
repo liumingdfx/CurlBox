@@ -6,7 +6,7 @@
 - 默认驻留托盘，内存占用小
 - 所有请求都通过本机 `curl.exe` 发出，不经过第三方中转服务
 
-当前版本：`1.0.0`
+当前版本：`1.0.1`
 
 - 仓库：<https://github.com/liumingdfx/CurlBox>
 - 下载：<https://github.com/liumingdfx/CurlBox/releases/latest>
@@ -22,6 +22,7 @@
   - 在请求库目录上单独开启 / 关闭
   - 自动补 Authorization、缺少 Token 时自动登录、响应 401 时重新登录并重试一次
 - 响应查看：JSON 格式化、中文 `\uXXXX` 转义解码、GBK 解码、图片预览
+- HTML 响应自动渲染预览，可一键切换源码；预览会禁用脚本和活动内容
 - 左右分栏可拖动，浅色主题，托盘图标和全局快捷键 `Ctrl+Alt+C`
 - 可选开机启动（写入当前用户 HKCU，默认关闭）
 
@@ -29,7 +30,7 @@
 
 ### 安装版
 
-1. 从 Releases 下载 `CurlBox-Setup-1.0.0.exe`。
+1. 从 Releases 下载 `CurlBox-Setup-1.0.1.exe`。
 2. 运行安装器，选择安装位置。
 3. 安装后，设置、历史和请求库保存在：
 
@@ -43,7 +44,7 @@
 
 ### 免安装版
 
-下载 `CurlBox-1.0.0.exe` 后直接运行。程序会把数据放在 EXE 同级的 `data` 目录。
+下载 `CurlBox-1.0.1.exe` 后直接运行。程序会把数据放在 EXE 同级的 `data` 目录。
 
 ### 运行环境
 
@@ -104,6 +105,7 @@
 | 杀毒软件报通用木马/可疑程序 | 会启动系统 `curl.exe`、生成临时配置和请求体文件、在安装目录写配置，安装器还会复制 EXE、写注册表和快捷方式，这些行为与恶意程序的部分行为相似 |
 | 安装时提示风险 | 安装器包含并释放 `CurlBox.exe`，会创建 `data`、卸载器和 HKCU 卸载项；这是安装器的正常行为，但可能被误判 |
 | 自动登录相关告警 | 自动 Token 会向配置的登录接口发送账号密码，保存 Token，并可能自动重试请求；这是功能需要，也意味着必须使用可信的登录地址 |
+| HTML 预览的资源与内存 | HTML 预览使用 Windows 内置 IE/WebBrowser 引擎，可能加载页面绝对地址中的外部图片/样式，首次预览会增加内存占用；脚本、iframe、object 和事件属性会被移除 |
 | 托盘、热键、开机启动告警 | 程序使用托盘、全局热键；如果手动开启开机启动，还会写 HKCU `Run` 注册表项 |
 
 项目不包含远程代码加载、静默更新或隐藏下载功能；所有源码都可在本仓库审计。
@@ -113,7 +115,7 @@
 1. 优先从本仓库 Releases 下载，并核对 SHA256：
 
    ```powershell
-   Get-FileHash .\CurlBox-Setup-1.0.0.exe -Algorithm SHA256
+   Get-FileHash .\CurlBox-Setup-1.0.1.exe -Algorithm SHA256
    ```
 
    与 Release 附件 `SHA256SUMS.txt` 对比。
@@ -121,7 +123,7 @@
 2. 如果文件来自网络且被锁定，可在文件属性中点击“解除锁定”，或执行：
 
    ```powershell
-   Unblock-File .\CurlBox-Setup-1.0.0.exe
+   Unblock-File .\CurlBox-Setup-1.0.1.exe
    ```
 
 3. SmartScreen 可在确认来源和哈希后点击“更多信息 → 仍要运行”。这只适用于你信任的构建。
@@ -189,6 +191,8 @@ installer\build-installer.cmd
 - 需要系统已安装 `curl.exe` 和 .NET Framework 4.8。
 - 自动 Token 的登录返回值固定读取 `data.token`；项目接口字段不同则需要修改源码。
 - 文件上传 / multipart 请求体导入时只保留基础信息，建议直接用 cURL 模式发送。
+- HTML 预览使用系统内置 IE/WebBrowser 引擎，禁用了脚本，现代 CSS/JS 页面可能与在 Edge/Chrome 中显示不同。
+- HTML 预览可能加载页面中绝对地址引用的外部图片和样式；如果内容敏感，请切换到「源码」视图。
 - 没有自动更新；升级需要重新运行安装器。
 - 没有代码签名，因此 SmartScreen / 杀毒软件提示属于已知风险，而不是安装器或程序的隐藏行为。
 

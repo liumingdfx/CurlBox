@@ -481,6 +481,37 @@ namespace CurlBox
         }
     }
 
+    internal sealed class SafePasteTextBox : TextBox
+    {
+        private const int WmPaste = 0x0302;
+
+        // Win11 comctl32 can corrupt its heap when a multiline edit handles
+        // WM_PASTE while the control is being reconfigured. Paste through the
+        // managed TextBox path instead of the native clipboard routine.
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == WmPaste)
+            {
+                try
+                {
+                    if (Clipboard.ContainsText())
+                    {
+                        string text = Clipboard.GetText();
+                        if (text.Length > 0)
+                        {
+                            int start = SelectionStart;
+                            SelectedText = text;
+                            SelectionStart = Math.Min(TextLength, start + text.Length);
+                        }
+                    }
+                }
+                catch { }
+                return;
+            }
+            base.WndProc(ref m);
+        }
+    }
+
     internal sealed class SplitHandle : Control
     {
         private bool _hover;

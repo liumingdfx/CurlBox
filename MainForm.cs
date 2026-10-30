@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -193,10 +194,14 @@ namespace CurlBox
         private Label _bodyTruncatedLabel;
         private RoundButton _prettyButton;
         private RoundButton _wrapButton;
+        private RoundButton _htmlButton;
         private RoundButton _copyBodyButton;
         private RoundButton _saveButton;
         private CardPanel _bodyCard;
         private RichTextBox _bodyBox;
+        private WebBrowser _htmlBrowser;
+        private bool _htmlAvailable;
+        private bool _htmlPreview;
         private Panel _imagePanel;
         private PictureBox _imageBox;
         private Label _imageInfo;
@@ -534,7 +539,7 @@ namespace CurlBox
             _editorCard.BorderColor = Theme.Border;
             _leftCard.Controls.Add(_editorCard);
 
-            _curlBox = new TextBox();
+            _curlBox = new SafePasteTextBox();
             _curlBox.Multiline = true;
             _curlBox.AcceptsReturn = true;
             _curlBox.AcceptsTab = true;
@@ -917,7 +922,7 @@ namespace CurlBox
             _builderBodyCard.BorderColor = Theme.BorderSoft;
             _builderBodyPanel.Controls.Add(_builderBodyCard);
 
-            _builderBodyBox = new TextBox();
+            _builderBodyBox = new SafePasteTextBox();
             _builderBodyBox.Multiline = true;
             _builderBodyBox.AcceptsReturn = true;
             _builderBodyBox.AcceptsTab = true;
@@ -1308,6 +1313,13 @@ namespace CurlBox
                 RenderBodyContent();
             };
             _bodyPanel.Controls.Add(_wrapButton);
+
+            _htmlButton = MakeToolButton("源码");
+            _htmlButton.Visible = false;
+            _htmlButton.Click += delegate { ToggleHtmlPreview(); };
+            _bodyPanel.Controls.Add(_htmlButton);
+            if (_toolTip != null)
+                _toolTip.SetToolTip(_htmlButton, "在 HTML 渲染和源码之间切换；预览已禁用脚本");
 
             _copyBodyButton = MakeToolButton("复制");
             _copyBodyButton.Click += delegate { CopyResultBody(); };
@@ -1853,16 +1865,6 @@ namespace CurlBox
             _editorPlaceholder.Visible = _curlBox.Text.Length == 0;
             if (_methodPlaceholder != null)
                 _methodPlaceholder.Visible = _methodBox.Text.Length == 0;
-            UpdateEditorScrollBars();
-        }
-
-        private void UpdateEditorScrollBars()
-        {
-            if (_curlBox == null) return;
-            bool needScrollbar = _curlBox.TextLength > 260 || _curlBox.Lines.Length > 6;
-            ScrollBars target = needScrollbar ? ScrollBars.Vertical : ScrollBars.None;
-            if (_curlBox.ScrollBars != target)
-                _curlBox.ScrollBars = target;
         }
 
         private void ScheduleParse()
@@ -3182,6 +3184,88 @@ namespace CurlBox
             return value.Length == 0 ? "—" : value;
         }
 
+        private void EnsureHtmlBrowser()
+        {
+            if (_htmlBrowser != null) return;
+            _htmlBrowser = new WebBrowser();
+            _htmlBrowser.ScriptErrorsSuppressed = true;
+            _htmlBrowser.IsWebBrowserContextMenuEnabled = false;
+            _htmlBrowser.WebBrowserShortcutsEnabled = false;
+            _htmlBrowser.AllowWebBrowserDrop = false;
+            _htmlBrowser.BackColor = Theme.Input;
+            _htmlBrowser.Visible = false;
+            _htmlBrowser.Navigating += delegate(object sender, WebBrowserNavigatingEventArgs e)
+            {
+                if (e.Url == null || string.Equals(e.Url.AbsoluteUri, "about:blank", StringComparison.OrdinalIgnoreCase))
+                    return;
+                e.Cancel = true;
+            };
+            _htmlBrowser.NewWindow += delegate(object sender, CancelEventArgs e) { e.Cancel = true; };
+            _bodyCard.Controls.Add(_htmlBrowser);
+            LayoutBodyPanel();
+        }
+
+        private void LoadHtmlPreview()
+        {
+            if (!_htmlAvailable || _result == null || string.IsNullOrEmpty(_result.BodyText)) return;
+            EnsureHtmlBrowser();
+            try
+            {
+                _htmlBrowser.Stop();
+                _htmlBrowser.DocumentText = HtmlPreview.BuildDocument(_result.BodyText);
+                _htmlBrowser.Visible = true;
+            }
+            catch (Exception ex)
+            {
+                _htmlAvailable = false;
+                _htmlPreview = false;
+                if (_htmlButton != null) _htmlButton.Visible = false;
+                if (_htmlBrowser != null)
+                {
+                    _htmlBrowser.Visible = false;
+                    _htmlBrowser.Stop();
+                }
+                _bodyBox.Visible = true;
+                LayoutBodyPanel();
+                ShowToast("HTML 预览失败：" + ex.Message, ToastKind.Error);
+            }
+        }
+
+        private void ToggleHtmlPreview()
+        {
+            if (!_htmlAvailable || _result == null) return;
+            _htmlPreview = !_htmlPreview;
+            if (_htmlButton != null) _htmlButton.Text = _htmlPreview ? "源码" : "预览";
+            if (_wrapButton != null) _wrapButton.Visible = !_htmlPreview;
+            if (_htmlPreview)
+            {
+                _bodyBox.Visible = false;
+                LoadHtmlPreview();
+            }
+            else
+            {
+                if (_htmlBrowser != null)
+                {
+                    _htmlBrowser.Visible = false;
+                    _htmlBrowser.Stop();
+                }
+                _bodyBox.Visible = true;
+            }
+            LayoutBodyPanel();
+        }
+
+        private void HideHtmlPreview(bool clearDocument)
+        {
+            if (_htmlBrowser == null) return;
+            _htmlBrowser.Visible = false;
+            try
+            {
+                _htmlBrowser.Stop();
+                if (clearDocument) _htmlBrowser.DocumentText = string.Empty;
+            }
+            catch { }
+        }
+
         private void RenderBodyContent()
         {
             if (_result == null || _bodyPanel == null) return;
@@ -3194,6 +3278,9 @@ namespace CurlBox
             _bodyEmptyLabel.Visible = false;
             _prettyButton.Visible = false;
             _wrapButton.Visible = false;
+            _htmlButton.Visible = false;
+            _htmlAvailable = false;
+            _htmlPreview = false;
             _copyBodyButton.Enabled = false;
             _saveButton.Enabled = false;
             _bodyTruncatedLabel.Visible = result.BodyTruncated;
@@ -3205,12 +3292,21 @@ namespace CurlBox
             if (result.BodyKind == "text")
             {
                 string raw = result.BodyText ?? string.Empty;
+                bool html = HtmlPreview.LooksLikeHtml(result.ContentType, raw);
+                _htmlAvailable = html && !result.BodyTruncated && raw.Length <= HtmlPreview.MaxPreviewChars;
+                _htmlPreview = _htmlAvailable;
+                if (html) _bodyKindLabel.Text = "HTML";
+
+                HideHtmlPreview(!_htmlAvailable);
+
                 _bodyBox.Visible = true;
-                _prettyAvailable = JsonDisplay.TryPretty(raw, result.ContentType, out _prettyText);
+                _prettyAvailable = !html && JsonDisplay.TryPretty(raw, result.ContentType, out _prettyText);
                 if (_prettyAvailable) _bodyKindLabel.Text = "JSON";
 
                 _prettyButton.Visible = _prettyAvailable;
-                _wrapButton.Visible = true;
+                _wrapButton.Visible = !html;
+                _htmlButton.Visible = _htmlAvailable;
+                _htmlButton.Text = "源码";
                 _copyBodyButton.Enabled = raw.Length > 0;
                 _saveButton.Enabled = !result.BodyTruncated && raw.Length > 0;
                 _prettyButton.Text = "格式化";
@@ -3222,6 +3318,12 @@ namespace CurlBox
                 string shown = usePretty ? _prettyText : raw;
                 SetBodyText(shown, usePretty && shown.Length <= 800000);
 
+                if (_htmlAvailable)
+                {
+                    _bodyBox.Visible = false;
+                    LoadHtmlPreview();
+                }
+
                 if (raw.Length == 0)
                 {
                     _bodyBox.Visible = false;
@@ -3231,6 +3333,7 @@ namespace CurlBox
             }
             else if (result.BodyKind == "image" || result.BodyKind == "binary")
             {
+                HideHtmlPreview(true);
                 bool imageShown = false;
                 if (result.BodyKind == "image" && result.BodyBytes != null && !result.BodyTruncated)
                 {
@@ -3265,6 +3368,7 @@ namespace CurlBox
             }
             else
             {
+                HideHtmlPreview(true);
                 _bodyEmptyLabel.Visible = true;
                 if (result.HeadOnly)
                     _bodyEmptyLabel.Text = "HEAD 请求没有响应体，响应头已单独展示。";
@@ -4188,12 +4292,21 @@ namespace CurlBox
             _copyBodyButton.SetBounds(_saveButton.Left - 2 - _copyBodyButton.Width, buttonY, _copyBodyButton.Width, 24);
             _wrapButton.SetBounds(_copyBodyButton.Left - 2 - _wrapButton.Width, buttonY, _wrapButton.Width, 24);
             _prettyButton.SetBounds(_wrapButton.Left - 2 - _prettyButton.Width, buttonY, _prettyButton.Width, 24);
+            int htmlX = _prettyButton.Visible
+                ? _prettyButton.Left - 2 - _htmlButton.Width
+                : _prettyButton.Left;
+            _htmlButton.SetBounds(htmlX, buttonY, _htmlButton.Width, 24);
 
             _bodyCard.SetBounds(18, 36, Math.Max(20, width - 36), Math.Max(20, height - 50));
             int cardWidth = _bodyCard.Width;
             int cardHeight = _bodyCard.Height;
             _bodyBox.SetBounds(10, 10, Math.Max(20, cardWidth - 20), Math.Max(20, cardHeight - 20));
             _imagePanel.SetBounds(10, 10, Math.Max(20, cardWidth - 20), Math.Max(20, cardHeight - 20));
+            if (_htmlBrowser != null)
+            {
+                _htmlBrowser.SetBounds(10, 10, Math.Max(20, cardWidth - 20), Math.Max(20, cardHeight - 20));
+                _htmlBrowser.BringToFront();
+            }
             _imageBox.SetBounds(0, 0, _imagePanel.Width, Math.Max(20, _imagePanel.Height - 30));
             _imageInfo.SetBounds(0, Math.Max(0, _imagePanel.Height - 26), _imagePanel.Width, 20);
             _bodyEmptyLabel.SetBounds(20, 20, Math.Max(20, cardWidth - 40), Math.Max(20, cardHeight - 40));
@@ -4380,6 +4493,16 @@ namespace CurlBox
             {
                 _builderMethodMenu.Dispose();
                 _builderMethodMenu = null;
+            }
+            if (_htmlBrowser != null)
+            {
+                try
+                {
+                    _htmlBrowser.Stop();
+                    _htmlBrowser.Dispose();
+                }
+                catch { }
+                _htmlBrowser = null;
             }
             DisposeImage();
             base.OnFormClosed(e);

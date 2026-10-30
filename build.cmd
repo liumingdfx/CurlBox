@@ -15,7 +15,7 @@ if not exist "%CSC%" (
 "%CSC%" /nologo /target:winexe /optimize+ /platform:anycpu ^
   /out:"..\CurlBox.exe" ^
   /win32icon:"app.ico" /win32manifest:"app.manifest" ^
-  Program.cs MainForm.cs RequestBuilder.cs RequestStore.cs RequestDialogs.cs RequestLibraryView.cs AutoTokenService.cs AutoTokenDialog.cs Theme.cs CurlEngine.cs CurlOptionData.cs NativeMethods.cs AssemblyInfo.cs ^
+  Program.cs MainForm.cs RequestBuilder.cs RequestStore.cs RequestDialogs.cs RequestLibraryView.cs AutoTokenService.cs AutoTokenDialog.cs HtmlPreview.cs Theme.cs CurlEngine.cs CurlOptionData.cs NativeMethods.cs AssemblyInfo.cs ^
   /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Web.Extensions.dll
 
 if errorlevel 1 (
