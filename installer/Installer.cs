@@ -12,7 +12,7 @@ namespace CurlBoxSetup
     internal static class Program
     {
         internal const string ProductName = "CurlBox";
-        internal const string DisplayVersion = "1.0.1";
+        internal const string DisplayVersion = "1.0.2";
         internal const string UninstallKey = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\CurlBox";
 
         [STAThread]

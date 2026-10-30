@@ -202,6 +202,7 @@ namespace CurlBox
         private WebBrowser _htmlBrowser;
         private bool _htmlAvailable;
         private bool _htmlPreview;
+        private bool _htmlReady;
         private Panel _imagePanel;
         private PictureBox _imageBox;
         private Label _imageInfo;
@@ -1322,8 +1323,11 @@ namespace CurlBox
                 _toolTip.SetToolTip(_htmlButton, "在 HTML 渲染和源码之间切换；预览已禁用脚本");
 
             _copyBodyButton = MakeToolButton("复制");
+            _copyBodyButton.Width = 60;
             _copyBodyButton.Click += delegate { CopyResultBody(); };
             _bodyPanel.Controls.Add(_copyBodyButton);
+            if (_toolTip != null)
+                _toolTip.SetToolTip(_copyBodyButton, "复制当前视图：HTML 预览复制可见文本，源码复制原始 HTML");
 
             _saveButton = MakeToolButton("保存");
             _saveButton.Click += delegate { SaveResultBody(); };
@@ -3190,7 +3194,7 @@ namespace CurlBox
             _htmlBrowser = new WebBrowser();
             _htmlBrowser.ScriptErrorsSuppressed = true;
             _htmlBrowser.IsWebBrowserContextMenuEnabled = false;
-            _htmlBrowser.WebBrowserShortcutsEnabled = false;
+            _htmlBrowser.WebBrowserShortcutsEnabled = true;
             _htmlBrowser.AllowWebBrowserDrop = false;
             _htmlBrowser.BackColor = Theme.Input;
             _htmlBrowser.Visible = false;
@@ -3201,6 +3205,7 @@ namespace CurlBox
                 e.Cancel = true;
             };
             _htmlBrowser.NewWindow += delegate(object sender, CancelEventArgs e) { e.Cancel = true; };
+            _htmlBrowser.DocumentCompleted += delegate { _htmlReady = true; };
             _bodyCard.Controls.Add(_htmlBrowser);
             LayoutBodyPanel();
         }
@@ -3211,6 +3216,7 @@ namespace CurlBox
             EnsureHtmlBrowser();
             try
             {
+                _htmlReady = false;
                 _htmlBrowser.Stop();
                 _htmlBrowser.DocumentText = HtmlPreview.BuildDocument(_result.BodyText);
                 _htmlBrowser.Visible = true;
@@ -3236,6 +3242,7 @@ namespace CurlBox
             if (!_htmlAvailable || _result == null) return;
             _htmlPreview = !_htmlPreview;
             if (_htmlButton != null) _htmlButton.Text = _htmlPreview ? "源码" : "预览";
+            if (_copyBodyButton != null) _copyBodyButton.Text = _htmlPreview ? "复制文本" : "复制源码";
             if (_wrapButton != null) _wrapButton.Visible = !_htmlPreview;
             if (_htmlPreview)
             {
@@ -3258,6 +3265,7 @@ namespace CurlBox
         {
             if (_htmlBrowser == null) return;
             _htmlBrowser.Visible = false;
+            _htmlReady = false;
             try
             {
                 _htmlBrowser.Stop();
@@ -3307,6 +3315,7 @@ namespace CurlBox
                 _wrapButton.Visible = !html;
                 _htmlButton.Visible = _htmlAvailable;
                 _htmlButton.Text = "源码";
+                _copyBodyButton.Text = _htmlAvailable ? "复制文本" : "复制";
                 _copyBodyButton.Enabled = raw.Length > 0;
                 _saveButton.Enabled = !result.BodyTruncated && raw.Length > 0;
                 _prettyButton.Text = "格式化";
@@ -3660,6 +3669,34 @@ namespace CurlBox
         private void CopyResultBody()
         {
             if (_result == null || _result.BodyKind != "text" || string.IsNullOrEmpty(_result.BodyText)) return;
+            if (_htmlAvailable && _htmlPreview)
+            {
+                if (!_htmlReady)
+                {
+                    ShowToast("HTML 预览正在渲染，请稍后再复制", ToastKind.Error);
+                    return;
+                }
+                string rendered = null;
+                try
+                {
+                    if (_htmlBrowser != null && _htmlBrowser.Document != null && _htmlBrowser.Document.Body != null)
+                        rendered = _htmlBrowser.Document.Body.InnerText;
+                }
+                catch { }
+                if (rendered == null)
+                {
+                    ShowToast("无法读取渲染文本，请切换到源码后复制", ToastKind.Error);
+                    return;
+                }
+                rendered = rendered.Replace('\u00A0', ' ').TrimEnd();
+                if (rendered.Length == 0)
+                {
+                    ShowToast("渲染后的文本为空，可切换到源码复制", ToastKind.Error);
+                    return;
+                }
+                CopyText(rendered, "已复制渲染文本");
+                return;
+            }
             CopyText(_result.BodyText, _result.BodyTruncated ? "已复制已载入的部分" : "响应体已复制");
         }
 

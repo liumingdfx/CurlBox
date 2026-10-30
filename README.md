@@ -6,7 +6,7 @@
 - 默认驻留托盘，内存占用小
 - 所有请求都通过本机 `curl.exe` 发出，不经过第三方中转服务
 
-当前版本：`1.0.1`
+当前版本：`1.0.2`
 
 - 仓库：<https://github.com/liumingdfx/CurlBox>
 - 下载：<https://github.com/liumingdfx/CurlBox/releases/latest>
@@ -23,6 +23,7 @@
   - 自动补 Authorization、缺少 Token 时自动登录、响应 401 时重新登录并重试一次
 - 响应查看：JSON 格式化、中文 `\uXXXX` 转义解码、GBK 解码、图片预览
 - HTML 响应自动渲染预览，可一键切换源码；预览会禁用脚本和活动内容
+- HTML 预览下点击「复制文本」会复制渲染后的可见文本；切换到源码后按钮变为「复制源码」，复制原始 HTML
 - 左右分栏可拖动，浅色主题，托盘图标和全局快捷键 `Ctrl+Alt+C`
 - 可选开机启动（写入当前用户 HKCU，默认关闭）
 
@@ -30,7 +31,7 @@
 
 ### 安装版
 
-1. 从 Releases 下载 `CurlBox-Setup-1.0.1.exe`。
+1. 从 Releases 下载 `CurlBox-Setup-1.0.2.exe`。
 2. 运行安装器，选择安装位置。
 3. 安装后，设置、历史和请求库保存在：
 
@@ -44,7 +45,7 @@
 
 ### 免安装版
 
-下载 `CurlBox-1.0.1.exe` 后直接运行。程序会把数据放在 EXE 同级的 `data` 目录。
+下载 `CurlBox-1.0.2.exe` 后直接运行。程序会把数据放在 EXE 同级的 `data` 目录。
 
 ### 运行环境
 
@@ -115,7 +116,7 @@
 1. 优先从本仓库 Releases 下载，并核对 SHA256：
 
    ```powershell
-   Get-FileHash .\CurlBox-Setup-1.0.1.exe -Algorithm SHA256
+   Get-FileHash .\CurlBox-Setup-1.0.2.exe -Algorithm SHA256
    ```
 
    与 Release 附件 `SHA256SUMS.txt` 对比。
@@ -123,7 +124,7 @@
 2. 如果文件来自网络且被锁定，可在文件属性中点击“解除锁定”，或执行：
 
    ```powershell
-   Unblock-File .\CurlBox-Setup-1.0.1.exe
+   Unblock-File .\CurlBox-Setup-1.0.2.exe
    ```
 
 3. SmartScreen 可在确认来源和哈希后点击“更多信息 → 仍要运行”。这只适用于你信任的构建。
